@@ -5,9 +5,13 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URL;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Properties;
 
 /**
@@ -29,15 +33,16 @@ public class MyDispatcherServlet extends HttpServlet {
     /**
      * 扫描的所有类名.
      */
-    private List<String> className;
+    private List<String> className = new ArrayList<>();
 
     @Override
     public void init(ServletConfig config) throws ServletException {
         //1. 加载配置文件
         String contextConfigLocation = "contextConfigLocation";
-        loadConfig(config.getInitParameter(contextConfigLocation));
+        this.loadConfig(config.getInitParameter(contextConfigLocation));
         //2. 初始化扫描类
-        initScanPackageClass(properties.getProperty("scan-package"));
+        this.initScanPackageClass(properties.getProperty("scan-package"));
+        className.forEach(System.out::println);
         //3. IOC
         //4. Method
         super.init(config);
@@ -73,6 +78,7 @@ public class MyDispatcherServlet extends HttpServlet {
         try {
             properties.load(resourceAsStream);
         } catch (IOException e) {
+            System.out.println("加载配置文件出错");
             e.printStackTrace();
         }
     }
@@ -86,6 +92,15 @@ public class MyDispatcherServlet extends HttpServlet {
      * @author heyefu 14:42 2019/12/16
      **/
     private void initScanPackageClass(String packagePath) {
-        System.out.println("packagePath:" + packagePath);
+        URL url = this.getClass().getClassLoader().getResource("/" + packagePath.replaceAll("\\.", "/"));
+        assert url != null;
+        File file = new File(url.getFile());
+        for (File f : Objects.requireNonNull(file.listFiles())) {
+            if (f.isDirectory()) {
+                this.initScanPackageClass(packagePath + "." + f.getName());
+            } else {
+                className.add(packagePath + "." + f.getName().replaceAll("\\.class", ""));
+            }
+        }
     }
 }
