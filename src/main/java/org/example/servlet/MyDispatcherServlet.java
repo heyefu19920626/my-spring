@@ -1,5 +1,7 @@
 package org.example.servlet;
 
+import org.example.annotation.MyController;
+
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -8,11 +10,9 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.InvocationTargetException;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.Properties;
+import java.util.*;
 
 /**
  * Description:
@@ -35,6 +35,11 @@ public class MyDispatcherServlet extends HttpServlet {
      */
     private List<String> className = new ArrayList<>();
 
+    /**
+     * 存储所有的ioc类
+     */
+    private Map<String, Object> ioc = new HashMap<>();
+
     @Override
     public void init(ServletConfig config) throws ServletException {
         //1. 加载配置文件
@@ -42,8 +47,9 @@ public class MyDispatcherServlet extends HttpServlet {
         this.loadConfig(config.getInitParameter(contextConfigLocation));
         //2. 初始化扫描类
         this.initScanPackageClass(properties.getProperty("scan-package"));
-        className.forEach(System.out::println);
         //3. IOC
+        this.initIocClass();
+        ioc.forEach((key, value) -> System.out.println(key + " : " + value));
         //4. Method
         super.init(config);
     }
@@ -100,6 +106,27 @@ public class MyDispatcherServlet extends HttpServlet {
                 this.initScanPackageClass(packagePath + "." + f.getName());
             } else {
                 className.add(packagePath + "." + f.getName().replaceAll("\\.class", ""));
+            }
+        }
+    }
+
+    private void initIocClass() {
+        for (String s : className) {
+            Class clz;
+            Object obj;
+            try {
+                clz = Class.forName(s);
+                //只实例化有MyController
+                if (clz.isAnnotationPresent(MyController.class)) {
+                    //将实例化的Controller放入IOC的Map,key为类名首字母小写
+                    String name = s.substring(s.lastIndexOf(".") + 1);
+                    name = name.substring(0, 1).toLowerCase() + name.substring(1);
+                    obj = clz.getDeclaredConstructor().newInstance();
+                    ioc.put(name, obj);
+                }
+            } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException | InstantiationException | InvocationTargetException e) {
+                System.out.printf("实例化[%s]失败", s);
+                e.printStackTrace();
             }
         }
     }
