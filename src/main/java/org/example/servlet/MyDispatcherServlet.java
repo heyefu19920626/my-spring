@@ -1,6 +1,7 @@
 package org.example.servlet;
 
 import org.example.annotation.MyController;
+import org.example.annotation.MyRequestMapping;
 
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
@@ -11,6 +12,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.*;
 
@@ -40,6 +42,16 @@ public class MyDispatcherServlet extends HttpServlet {
      */
     private Map<String, Object> ioc = new HashMap<>();
 
+    /**
+     * 存储所有的方法映射,key: url;value: 对应方法
+     */
+    private Map<String, Method> handlerMapping = new HashMap<>();
+
+    /**
+     * 调用反射方法时也需要传入该方法对应的类, key: url;value: 对应类
+     */
+    private Map<String, Object> controllerMap = new HashMap<>();
+
     @Override
     public void init(ServletConfig config) throws ServletException {
         //1. 加载配置文件
@@ -49,7 +61,9 @@ public class MyDispatcherServlet extends HttpServlet {
         this.initScanPackageClass(properties.getProperty("scan-package"));
         //3. IOC
         this.initIocClass();
-        ioc.forEach((key, value) -> System.out.println(key + " : " + value));
+        this.initHandlerMapping();
+        handlerMapping.forEach((key, value) -> System.out.println(key + " : " + value));
+        controllerMap.forEach((key, value) -> System.out.println(key + " : " + value));
         //4. Method
         super.init(config);
     }
@@ -127,6 +141,24 @@ public class MyDispatcherServlet extends HttpServlet {
             } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException | InstantiationException | InvocationTargetException e) {
                 System.out.printf("实例化[%s]失败", s);
                 e.printStackTrace();
+            }
+        }
+    }
+
+    /**
+     * 初始化方法映射,将url与method对应上
+     */
+    private void initHandlerMapping() {
+        for (Map.Entry<String, Object> entry : ioc.entrySet()) {
+            Object object = entry.getValue();
+            Method[] methods = object.getClass().getMethods();
+            for (Method method : methods) {
+                if (method.isAnnotationPresent(MyRequestMapping.class)) {
+                    MyRequestMapping requestMapping = method.getAnnotation(MyRequestMapping.class);
+                    // TODO: 2020/1/5 目前这类只支持了在方法上使用MyRequestMapping注解,并且没有将多重//符号替换位单个/符号
+                    handlerMapping.put(requestMapping.value(), method);
+                    controllerMap.put(requestMapping.value(), object);
+                }
             }
         }
     }

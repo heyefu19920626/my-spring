@@ -1,6 +1,7 @@
 package org.example.controller;
 
 import org.example.annotation.MyController;
+import org.example.annotation.MyRequestMapping;
 
 /**
  * Description:
@@ -13,4 +14,10 @@ import org.example.annotation.MyController;
  **/
 @MyController
 public class TestController {
+
+    @MyRequestMapping("test")
+    public void testMapping() {
+
+        System.out.println("MyRequestMapping");
+    }
 }
